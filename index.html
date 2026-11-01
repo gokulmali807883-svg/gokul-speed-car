@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gokul Speed Car</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 14px;
+            background-color: #0b0e14;
+            color: #ffffff;
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 100vh;
+        }
+        #login-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(11, 14, 20, 0.98);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            text-align: center;
+        }
+        .login-card {
+            background: #161b22;
+            padding: 30px 20px;
+            border-radius: 16px;
+            border: 1px solid #30363d;
+            max-width: 380px;
+            width: 100%;
+        }
+        #user-profile-bar {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: #1c2128;
+            padding: 8px 16px;
+            border-radius: 30px;
+            border: 1px solid #444c56;
+            margin-bottom: 8px;
+        }
+        #user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f1c40f;
+        }
+        h1 { color: #f1c40f; margin: 4px 0; font-size: 24px; text-align: center; }
+        #status { font-size: 19px; color: #00ffcc; font-weight: bold; min-height: 28px; text-align: center; }
+        #hud { font-size: 16px; margin-bottom: 8px; color: #e6edf3; text-align: center; }
+        
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            max-width: 440px;
+            margin-bottom: 10px;
+        }
+        button {
+            border: none;
+            border-radius: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .main-btn {
+            background: #f1c40f; color: #000; font-size: 22px;
+            padding: 16px; width: 100%; max-width: 440px; margin-bottom: 10px;
+        }
+        .steer-btn { background: #34495e; color: #fff; font-size: 20px; padding: 22px 8px; }
+        .accel-btn { background: #27ae60; color: #fff; font-size: 19px; padding: 18px 8px; }
+        .front-brake-btn { background: #c0392b; color: #fff; font-size: 19px; padding: 18px 8px; }
+        .breaker-btn { 
+            background: #e67e22; color: #fff; font-size: 19px; 
+            padding: 18px 8px; grid-column: span 2; 
+            border: 2px dashed #f39c12;
+        }
+        .rear-brake-btn { background: #8e44ad; color: #fff; font-size: 18px; padding: 16px 8px; grid-column: span 2; }
+        
+        #settings-panel {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; width: 100%;
+            background: #161b22;
+            border-top: 2px solid #30363d;
+            padding: 20px;
+            border-radius: 20px 20px 0 0;
+            z-index: 500;
+        }
+        .setting-row { margin-bottom: 14px; }
+        .setting-row label { display: block; margin-bottom: 6px; font-weight: bold; color: #f1c40f; }
+        .setting-row select {
+            width: 100%; padding: 10px; font-size: 16px;
+            border-radius: 8px; background: #21262d; color: #fff; border: 1px solid #444c56;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay">
+        <div class="login-card">
+            <h1 style="font-size: 28px;">गोकुळ स्पीड कार</h1>
+            <p style="color: #8b949e; margin-bottom: 20px;">खेळ सुरू करण्यासाठी गुगलने साईन इन करा</p>
+            
+            <div id="g_id_onload"
+                 data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_blue"></div>
+            
+            <button onclick="guestLogin()" style="margin-top: 20px; background: transparent; border: 1px solid #444c56; color: #8b949e; padding: 10px; border-radius: 8px; width: 100%;">
+                गोकुळ म्हणून थेट खेळा (Skip)
+            </button>
+        </div>
+    </div>
+
+    <div id="user-profile-bar">
+        <img id="user-avatar" src="" alt="खेळाडू प्रोफाईल" />
+        <span id="user-name" style="font-weight: bold; color: #58a6ff;">खेळाडू</span>
+    </div>
+
+    <header>
+        <h1>गोकुळ स्पीड कार</h1>
+        <div id="status" aria-live="assertive">खेळण्यासाठी खालील बटण दाबा</div>
+        <div id="hud">स्कोअर: <span id="score">0</span> | स्पीड: <span id="speed-meter">60</span> किमी/तास | लेन: <span id="lane-name">मध्यम</span></div>
+    </header>
+
+    <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+        <button id="start-btn" class="main-btn" onclick="toggleGame()">गेम सुरू करा</button>
+
+        <div class="controls-grid">
+            <button class="steer-btn" onclick="steerLeft()" aria-label="गाडी डावीकडे वळवा">⬅️ डावी लेन</button>
+            <button class="steer-btn" onclick="steerRight()" aria-label="गाडी उजवीकडे वळवा">उजवी लेन ➡️</button>
+            
+            <button class="accel-btn" onclick="pressAccelerator()" aria-label="ॲक्सिलेटर दाबा">⚡ ॲक्सिलेटर (रेस)</button>
+            <button class="front-brake-btn" onclick="pressFrontBrake()" aria-label="पुढचा ब्रेक">🛑 पुढचा ब्रेक</button>
+            
+            <button class="breaker-btn" onclick="hitSpeedBreakerManual()" aria-label="स्पीड ब्रेकर पार करा">🚧 स्पीड ब्रेकर पार करा (खडक-खडक)</button>
+            
+            <button class="rear-brake-btn" onclick="pressRearBrake()" aria-label="मागचा ब्रेक, हँडब्रेक">⚠️ मागचा ब्रेक (हँडब्रेक)</button>
+        </div>
+
+        <button class="main-btn" style="background: #21262d; color: #c9d1d9; font-size: 16px; padding: 12px;" onclick="toggleSettings()">⚙️ आवाज व हॉर्न सेटिंग्ज</button>
+    </div>
+
+    <div id="settings-panel">
+        <h3 style="color:#f1c40f; margin-top:0;">आवाज सेटिंग्ज</h3>
+        <div class="setting-row">
+            <label for="engine-sound-select">इंजिनचा प्रकार:</label>
+            <select id="engine-sound-select" onchange="changeEngineSound(this.value)">
+                <option value="sports">स्पोर्ट्स रेस कार (V8)</option>
+                <option value="heavy">हेव्ही एसयूव्ही (Deep Roar)</option>
+                <option value="turbo">क्लासिक टर्बो</option>
+            </select>
+        </div>
+        <div class="setting-row">
+            <label for="horn-sound-select">हॉर्नचा आवाज:</label>
+            <select id="horn-sound-select" onchange="changeHornSound(this.value)">
+                <option value="loud">डबल लाऊड हॉर्न</option>
+                <option value="truck">ट्रक हॉर्न</option>
+                <option value="sharp">शार्प कार हॉर्न</option>
+            </select>
+        </div>
+        <button class="main-btn" onclick="toggleSettings()" style="margin: 0; padding: 12px;">सेव्ह करा</button>
+    </div>
+
+    <script>
+        function decodeJwtResponse(token) {
+            let base64Url = token.split('.')[1];
+            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            return JSON.parse(decodeURIComponent(escape(window.atob(base64))));
+        }
+
+        function handleCredentialResponse(response) {
+            const responsePayload = decodeJwtResponse(response.credential);
+            setPlayerProfile(responsePayload.name, responsePayload.picture);
+        }
+
+        function guestLogin() {
+            setPlayerProfile("Gokul Mali", "https://via.placeholder.com/36/f1c40f/000000?text=G");
+        }
+
+        function setPlayerProfile(name, picUrl) {
+            document.getElementById('login-overlay').style.display = 'none';
+            const bar = document.getElementById('user-profile-bar');
+            bar.style.display = 'flex';
+            document.getElementById('user-name').textContent = name;
+            document.getElementById('user-avatar').src = picUrl;
+            speak(name + " साईन इन झाले! गोकुळ स्पीड कार गेममध्ये आपले स्वागत आहे.");
+        }
+
+        let audioCtx = null;
+        let engineOsc = null;
+        let engineGain = null;
+        let isPlaying = false;
+        let score = 0;
+        let speed = 60;
+        let playerLane = 0;
+        let obstacleLane = 0;
+        let gameTimer = null;
+        let obstacleTimer = null;
+        let breakerTimer = null;
+        let selectedEngine = 'sports';
+        let selectedHorn = 'loud';
+
+        const lanes = ["डावी", "मध्यम", "उजवी"];
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.lang = 'mr-IN';
+                utter.rate = 1.15;
+                window.speechSynthesis.speak(utter);
+            }
+        }
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function startEngine() {
+            initAudio();
+            engineOsc = audioCtx.createOscillator();
+            engineGain = audioCtx.createGain();
+
+            let baseFreq = selectedEngine === 'sports' ? 75 : (selectedEngine === 'heavy' ? 48 : 62);
+            engineOsc.type = selectedEngine === 'sports' ? 'sawtooth' : 'triangle';
+            engineOsc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(280, audioCtx.currentTime);
+
+            engineGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+
+            engineOsc.connect(filter);
+            filter.connect(engineGain);
+            engineGain.connect(audioCtx.destination);
+            engineOsc.start();
+        }
+
+        function playSpeedBreakerSound() {
+            initAudio();
+            [0, 0.12].forEach((delay) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(120, audioCtx.currentTime + delay);
+                osc.frequency.exponentialRampToValueAtTime(35, audioCtx.currentTime + delay + 0.1);
+
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime + delay);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + delay + 0.1);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(audioCtx.currentTime + delay);
+                osc.stop(audioCtx.currentTime + delay + 0.1);
+            });
+
+            if (navigator.vibrate) navigator.vibrate([70, 40, 90]);
+        }
+
+        function hitSpeedBreakerManual() {
+            playSpeedBreakerSound();
+            if (speed > 80) {
+                speed = Math.max(40, speed - 35);
+                document.getElementById('speed-meter').textContent = speed;
+                speak("मोठा हादरा! वेग कमी करा.");
+            } else {
+                speak("स्पीड ब्रेकर पार केला.");
+            }
+        }
+
+        function pressAccelerator() {
+            if (!isPlaying) return;
+            speed = Math.min(180, speed + 15);
+            document.getElementById('speed-meter').textContent = speed;
+
+            if (engineOsc) {
+                let currentFreq = engineOsc.frequency.value;
+                engineOsc.frequency.linearRampToValueAtTime(currentFreq + 35, audioCtx.currentTime + 0.25);
+                setTimeout(() => {
+                    if (engineOsc && isPlaying) engineOsc.frequency.linearRampToValueAtTime(currentFreq, audioCtx.currentTime + 0.35);
+                }, 350);
+            }
+            if (navigator.vibrate) navigator.vibrate(50);
+            speak("स्पीड वाढवला!");
+        }
+
+        function pressFrontBrake() {
+            if (!isPlaying) return;
+            speed = Math.max(30, speed - 30);
+            document.getElementById('speed-meter').textContent = speed;
+            playTireScreech(true);
+            speak("पुढचा ब्रेक!");
+        }
+
+        function pressRearBrake() {
+            if (!isPlaying) return;
+            speed = Math.max(40, speed - 15);
+            document.getElementById('speed-meter').textContent = speed;
+            playTireScreech(false);
+            speak("मागचा ब्रेक!");
+        }
+
+        function playTireScreech(isHard) {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(isHard ? 1100 : 750, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + (isHard ? 0.4 : 0.25));
+
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + (isHard ? 0.4 : 0.25));
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + (isHard ? 0.4 : 0.25));
+
+            if (navigator.vibrate) navigator.vibrate(isHard ? [120, 40, 120] : 80);
+        }
+
+        function playStereoHorn(panValue) {
+            initAudio();
+            const panner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            let f1 = selectedHorn === 'truck' ? 220 : 440;
+            let f2 = selectedHorn === 'truck' ? 280 : 550;
+
+            osc1.type = 'sawtooth';
+            osc2.type = 'triangle';
+            osc1.frequency.setValueAtTime(f1, audioCtx.currentTime);
+            osc2.frequency.setValueAtTime(f2, audioCtx.currentTime);
+
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+
+            if (panner) {
+                panner.pan.setValueAtTime(panValue, audioCtx.currentTime);
+                osc1.connect(panner);
+                osc2.connect(panner);
+                panner.connect(gain);
+            } else {
+                osc1.connect(gain);
+                osc2.connect(gain);
+            }
+            gain.connect(audioCtx.destination);
+
+            osc1.start();
+            osc2.start();
+            osc1.stop(audioCtx.currentTime + 0.6);
+            osc2.stop(audioCtx.currentTime + 0.6);
+        }
+
+        function steerLeft() {
+            if (!isPlaying) return;
+            if (playerLane > -1) {
+                playerLane--;
+                updateHUD();
+                speak(lanes[playerLane + 1]);
+                if (navigator.vibrate) navigator.vibrate(50);
+            } else {
+                speak("रस्त्याचा शेवट!");
+            }
+        }
+
+        function steerRight() {
+            if (!isPlaying) return;
+            if (playerLane < 1) {
+                playerLane++;
+                updateHUD();
+                speak(lanes[playerLane + 1]);
+                if (navigator.vibrate) navigator.vibrate(50);
+            } else {
+                speak("रस्त्याचा शेवट!");
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('lane-name').textContent = lanes[playerLane + 1];
+        }
+
+        function toggleGame() {
+            initAudio();
+            const btn = document.getElementById('start-btn');
+            if (!isPlaying) {
+                isPlaying = true;
+                score = 0;
+                speed = 60;
+                playerLane = 0;
+                updateHUD();
+                btn.textContent = "गेम थांबवा";
+                speak("रेसिंग सुरू झाली! लक्ष देऊन ऐका.");
+                startEngine();
+                scheduleObstacle();
+                scheduleRandomBreaker();
+
+                gameTimer = setInterval(() => {
+                    if (!isPlaying) return;
+                    score += Math.floor(speed / 30);
+                    document.getElementById('score').textContent = score;
+                }, 1000);
+            } else {
+                stopGame("गेम थांबवला");
+            }
+        }
+
+        function scheduleRandomBreaker() {
+            if (!isPlaying) return;
+            breakerTimer = setTimeout(() => {
+                if (!isPlaying) return;
+                speak("लक्ष द्या! समोर स्पीड ब्रेकर आहे, ब्रेक दाबा!");
+                setTimeout(() => {
+                    if (!isPlaying) return;
+                    playSpeedBreakerSound();
+                    if (speed > 90) {
+                        speak("गाडी जोरात आदळली!");
+                        if (navigator.vibrate) navigator.vibrate([200, 100, 300]);
+                    }
+                    scheduleRandomBreaker();
+                }, 2000);
+            }, 12000);
+        }
+
+        function scheduleObstacle() {
+            if (!isPlaying) return;
+            let timeGap = Math.max(2200, 4800 - (speed * 18));
+            obstacleTimer = setTimeout(() => {
+                if (!isPlaying) return;
+                triggerObstacle();
+            }, timeGap);
+        }
+
+        function triggerObstacle() {
+            const laneOptions = [-1, 0, 1];
+            obstacleLane = laneOptions[Math.floor(Math.random() * laneOptions.length)];
+
+            let msg = "";
+            let pan = 0;
+
+            if (obstacleLane === -1) {
+                msg = "गाडी डावीकडून येत आहे, उजवीकडे वळा!";
+                pan = -0.95;
+            } else if (obstacleLane === 1) {
+                msg = "गाडी उजवीकडून येत आहे, डावीकडे वळा!";
+                pan = 0.95;
+            } else {
+                msg = "गाडी थेट समोरून येत आहे, बाजूला व्हा!";
+                pan = 0;
+            }
+
+            speak(msg);
+            playStereoHorn(pan);
+
+            setTimeout(() => {
+                if (!isPlaying) return;
+                if (playerLane === obstacleLane) {
+                    crash();
+                } else {
+                    speak("छान वाचलात!");
+                    scheduleObstacle();
+                }
+            }, 1800);
+        }
+
+        function crash() {
+            if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 600]);
+            speak("अपघात झाला! गेम संपला. तुमचा स्कोअर " + score);
+            stopGame("गाडी धडकली! गेम संपला.");
+        }
+
+        function stopGame(statusMsg) {
+            isPlaying = false;
+            clearTimeout(obstacleTimer);
+            clearTimeout(breakerTimer);
+            clearInterval(gameTimer);
+            if (engineOsc) {
+                try { engineOsc.stop(); } catch(e){}
+                engineOsc = null;
+            }
+            document.getElementById('status').textContent = statusMsg;
+            document.getElementById('start-btn').textContent = "पुन्हा खेळा";
+        }
+
+        function toggleSettings() {
+            const p = document.getElementById('settings-panel');
+            p.style.display = p.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function changeEngineSound(val) {
+            selectedEngine = val;
+            speak("इंजिन आवाज बदलला.");
+        }
+
+        function changeHornSoun
